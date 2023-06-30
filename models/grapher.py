@@ -6,7 +6,7 @@ from torch import Tensor
 from torch_scatter import scatter
 from typing import Optional, Union, List, Tuple, Dict
 
-from .utils import graph_to_image, image_to_graph, compute_edge_index
+from .utils import graph_to_image, image_to_graph, compute_edge_index, batched_graph_to_graph
 
 class Grapher(gnn.MessagePassing):
     def __init__(self, in_features: int, heads: int, out_features: int, flow: str='target_to_source', **kwargs) -> None:
@@ -70,18 +70,22 @@ class GrapherFC(Grapher):
 
     def forward(self, x: Tensor, y: Optional[Tensor]=None, size=None) -> Tensor:
         B, _, H, W = x.shape
-        x = image_to_graph(x)
+        x = image_to_graph(x, batched=True)
         # x.shape == B, N, C, being N == H * W (1 patch = 1 node)
         if y is None:
-            edge_index = compute_edge_index(x, x, k=self.k, is_batched=False)
+            edge_index = compute_edge_index(x, x, k=self.k, is_batched=True)
         else:
-            y = image_to_graph(y)
-            edge_index = compute_edge_index(x, y, self.k, is_batched=False)
+            y = image_to_graph(y, batched=True)
+            edge_index = compute_edge_index(x, y, self.k, is_batched=True)
 
-        y = self.fc1(x)
-        y = super(GrapherFC, self).forward(y, edge_index, y, size)
-        y = self.act_l(y)
-        x = self.fc2(y) + x
+        # convert from batched graph to graph
+        x = batched_graph_to_graph(x)
+        y = batched_graph_to_graph(y)
+
+        x_proj = self.fc1(x)
+        x_proj = super(GrapherFC, self).forward(x_proj, edge_index, y, size)
+        x_proj = self.act_l(x_proj)
+        x = self.fc2(x_proj) + x
         if self.reconstruct_image:
             x = graph_to_image(x, B, H, W)
         return x
