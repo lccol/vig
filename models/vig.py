@@ -2,12 +2,11 @@ import torch
 import torch.nn as nn
 import torch_geometric.nn as gnn
 
-from torch_scatter import scatter
 from torch import Tensor
 from torch.nn import functional as F
 from typing import Union, List, Optional, Tuple
 
-from .utils import get_activation_layer, compute_edge_index, image_to_graph, graph_to_image
+from .utils import graph_to_image
 from .patch_embedding import PatchEmbedding, PatchEmbeddingV2
 from .grapher import GrapherFC
 from .decoder import ViGDecoder
